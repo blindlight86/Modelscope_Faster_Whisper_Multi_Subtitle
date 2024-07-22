@@ -11,18 +11,6 @@ import math
 
 import torch
 
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM,pipeline
-
-from slicer2 import Slicer
-
-import librosa
-
-import soundfile
-
-from funasr import AutoModel
-
-from funasr.utils.postprocess_utils import rich_transcription_postprocess
-
 # 指定本地目录
 local_dir_root = "./models_from_modelscope"
 
@@ -38,7 +26,7 @@ model_dir_ins = './models_from_modelscope/damo/nlp_csanmt_translation_en2zh'
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-import ollama
+from ollama import Client
 
 # 合并字幕
 def merge_sub(video_path,srt_path):
@@ -46,244 +34,13 @@ def merge_sub(video_path,srt_path):
     if os.path.exists("./test_srt.mp4"):
         os.remove("./test_srt.mp4")
 
-    ffmpeg.input(video_path).output("./test_srt.mp4", vf="subtitles=" + srt_path).run()
+    ffmpeg.input(video_path).output(
+        "./test_srt.mp4", vf=f"subtitles={srt_path}"
+    ).run()
 
     return "./test_srt.mp4"
-
-
-def make_tran_ja2zh_neverLife(srt_path):
-
-    model_path = "neverLife/nllb-200-distilled-600M-ja-zh"
-
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_path, from_pt=True)
-    tokenizer = AutoTokenizer.from_pretrained(model_path, src_lang="jpn_Jpan", tgt_lang="zho_Hans", from_pt=True)
-
-    # pipe = pipeline(model="larryvrh/mt5-translation-ja_zh")
-
-    with open(srt_path, 'r',encoding="utf-8") as file:
-        gweight_data = file.read()
-
-    result = gweight_data.split("\n\n")
-
-    if os.path.exists("./two.srt"):
-        os.remove("./two.srt")
-
-    for res in result:
-
-        line_srt = res.split("\n")
-        
-        try:
-            # translated_text = pipe(f'<-ja2zh-> {line_srt[2]}')[0]['translation_text']
-            # print(translated_text)
-            input_ids = tokenizer.encode(line_srt[2], max_length=128, padding=True, return_tensors='pt')
-            outputs = model.generate(input_ids, num_beams=4, max_new_tokens=128)
-            translated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-            print(translated_text)
-
-        except IndexError as e:
-            # 处理下标越界异常
-            print(f"翻译完毕")
-            break
-        except Exception as e:
-             print(str(e))
-             
-        
-        with open("./two.srt","a",encoding="utf-8")as f:f.write(f"{line_srt[0]}\n{line_srt[1]}\n{line_srt[2]}\n{translated_text}\n\n")
-
-    with open("./two.srt","r",encoding="utf-8") as f:
-        content = f.read()
-    
-    return content
-
-
-
-def make_tran_ko2zh(srt_path):
-
-    # pipe = pipeline(model="yesj1234/mbart_cycle1_ko-zh",device=device,from_pt=True)
-
-    model_path = "./model_from_hg/ko-zh/"
-
-    tokenizer = AutoTokenizer.from_pretrained(model_path,local_files_only=True)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_path,local_files_only=True)
-
-    with open(srt_path, 'r',encoding="utf-8") as file:
-        gweight_data = file.read()
-
-    result = gweight_data.split("\n\n")
-
-    if os.path.exists("./two.srt"):
-        os.remove("./two.srt")
-
-    for res in result:
-
-        line_srt = res.split("\n")
-        
-        try:
-
-            # translated_text = pipe(f'<-ja2zh-> {line_srt[2]}')[0]['translation_text']
-            # print(translated_text)
-
-            input_ids = tokenizer.encode(line_srt[2], max_length=128, padding=True, return_tensors='pt')
-            outputs = model.generate(input_ids, num_beams=4, max_new_tokens=128)
-            translated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-            print(translated_text)
-
-        except IndexError as e:
-            # 处理下标越界异常
-            print(f"翻译完毕")
-            break
-        except Exception as e:
-             print(str(e))
-             
-        
-        with open("./two.srt","a",encoding="utf-8")as f:f.write(f"{line_srt[0]}\n{line_srt[1]}\n{line_srt[2]}\n{translated_text}\n\n")
-
-    with open("./two.srt","r",encoding="utf-8") as f:
-        content = f.read()
-    
-    return content
-
-def make_tran_ja2zh(srt_path):
-
-    # pipe = pipeline(model="larryvrh/mt5-translation-ja_zh",device=device)
-
-
-    model_path = "./model_from_hg/ja-zh/"
-
-    tokenizer = AutoTokenizer.from_pretrained(model_path,local_files_only=True)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_path,local_files_only=True)
-
-    with open(srt_path, 'r',encoding="utf-8") as file:
-        gweight_data = file.read()
-
-    result = gweight_data.split("\n\n")
-
-    if os.path.exists("./two.srt"):
-        os.remove("./two.srt")
-
-    for res in result:
-
-        line_srt = res.split("\n")
-        
-        try:
-
-            # translated_text = pipe(f'<-ja2zh-> {line_srt[2]}')[0]['translation_text']
-            # print(translated_text)
-
-            input_ids = tokenizer.encode(f'<-ja2zh-> {line_srt[2]}', max_length=128, padding=True, return_tensors='pt')
-            outputs = model.generate(input_ids, num_beams=4, max_new_tokens=128)
-            translated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-            print(translated_text)
-
-
-
-        except IndexError as e:
-            # 处理下标越界异常
-            print(f"翻译完毕")
-            break
-        except Exception as e:
-             print(str(e))
-             
-        
-        with open("./two.srt","a",encoding="utf-8")as f:f.write(f"{line_srt[0]}\n{line_srt[1]}\n{line_srt[2]}\n{translated_text}\n\n")
-
-    with open("./two.srt","r",encoding="utf-8") as f:
-        content = f.read()
-    
-    return content
-
-
-def make_tran_zh2en(srt_path):
-
-    model_path = "./model_from_hg/zh-en/" 
-
-    tokenizer = AutoTokenizer.from_pretrained(model_path,local_files_only=True)
-
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_path,local_files_only=True)
-
-    with open(srt_path, 'r',encoding="utf-8") as file:
-        gweight_data = file.read()
-
-    result = gweight_data.split("\n\n")
-
-    if os.path.exists("./two.srt"):
-        os.remove("./two.srt")
-
-    for res in result:
-
-        line_srt = res.split("\n")
-        try:
-
-            tokenized_text = tokenizer.prepare_seq2seq_batch([line_srt[2]], return_tensors='pt')
-            translation = model.generate(**tokenized_text)
-            translated_text = tokenizer.batch_decode(translation, skip_special_tokens=False)[0]
-            translated_text = translated_text.replace("<pad>","").replace("</s>","").strip()
-            print(translated_text)
-
-        except IndexError as e:
-            # 处理下标越界异常
-            print(f"翻译完毕")
-            break
-        except Exception as e:
-             print(str(e))
-             
-        
-        with open("./two.srt","a",encoding="utf-8")as f:f.write(f"{line_srt[0]}\n{line_srt[1]}\n{line_srt[2]}\n{translated_text}\n\n")
-
-    with open("./two.srt","r",encoding="utf-8") as f:
-        content = f.read()
-    
-    return content
-
-
-# 翻译字幕 英译中
-def make_tran(srt_path):
-
-
-    model_path = "./model_from_hg/en-zh/"
-
-    tokenizer = AutoTokenizer.from_pretrained(model_path,local_files_only=True)
-
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_path,local_files_only=True)
-
-    with open(srt_path, 'r',encoding="utf-8") as file:
-        gweight_data = file.read()
-
-    result = gweight_data.split("\n\n")
-
-    if os.path.exists("./two.srt"):
-        os.remove("./two.srt")
-
-    for res in result:
-
-        line_srt = res.split("\n")
-        try:
-
-            tokenized_text = tokenizer.prepare_seq2seq_batch([line_srt[2]], return_tensors='pt')
-            translation = model.generate(**tokenized_text)
-            translated_text = tokenizer.batch_decode(translation, skip_special_tokens=False)[0]
-            translated_text = translated_text.replace("<pad>","").replace("</s>","").strip()
-            print(translated_text)
-
-        except IndexError as e:
-            # 处理下标越界异常
-            print(f"翻译完毕")
-            break
-        except Exception as e:
-             print(str(e))
-             
-        
-        with open("./two.srt","a",encoding="utf-8")as f:f.write(f"{line_srt[0]}\n{line_srt[1]}\n{line_srt[2]}\n{translated_text}\n\n")
-
-    with open("./two.srt","r",encoding="utf-8") as f:
-        content = f.read()
-
-    return content
-
-
-
 # 翻译字幕 英译中 qwen2
-def make_tran_qwen2(srt_path,lang):
+def make_tran_qwen2(ollama_host, ollama_module, srt_path,lang):
 
     with open(srt_path, 'r',encoding="utf-8") as file:
         gweight_data = file.read()
@@ -311,7 +68,8 @@ def make_tran_qwen2(srt_path,lang):
 
             content = f'"{text}" 翻译为{lang}，只给我文本的翻译，别添加其他的内容，因为我要做字幕，谢谢'
 
-            response = ollama.chat(model='qwen2:7b',messages=[
+            client = Client(host=ollama_host)
+            response = client.chat(model=ollama_module, messages=[
             {
             'role':'user',
             'content':content
@@ -321,12 +79,12 @@ def make_tran_qwen2(srt_path,lang):
 
         except IndexError as e:
             # 处理下标越界异常
-            print(f"翻译完毕")
+            print("翻译完毕")
             break
         except Exception as e:
-             print(str(e))
-             
-        
+            print(e)
+
+
         with open("./two.srt","a",encoding="utf-8")as f:f.write(f"{line_srt[0]}\n{line_srt[1]}\n{line_srt[2]}\n{translated_text}\n\n")
 
     with open("./two.srt","r",encoding="utf-8") as f:
@@ -334,45 +92,11 @@ def make_tran_qwen2(srt_path,lang):
 
     return content
 
-# # 翻译字幕
-# def make_tran_ali():
-
-#     pipeline_ins = pipeline(task=Tasks.translation, model=model_dir_ins)
-
-#     with open("./video.srt", 'r',encoding="utf-8") as file:
-#         gweight_data = file.read()
-
-#     result = gweight_data.split("\n\n")
-
-#     if os.path.exists("./two.srt"):
-#         os.remove("./two.srt")
-
-#     for res in result:
-
-#         line_srt = res.split("\n")
-#         try:
-#             outputs = pipeline_ins(input=line_srt[2])
-#             print(outputs['translation'])
-#         except IndexError as e:
-#             # 处理下标越界异常
-#             print(f"翻译完毕")
-#             break
-#         except Exception as e:
-#              print(str(e))
-             
-        
-#         with open("./two.srt","a",encoding="utf-8")as f:f.write(f"{line_srt[0]}\n{line_srt[1]}\n{line_srt[2]}\n{outputs['translation']}\n\n")
-
-#     return "翻译完毕"
-
-
-
 def convert_seconds_to_hms(seconds):
     hours, remainder = divmod(seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
     milliseconds = math.floor((seconds % 1) * 1000)
-    output = f"{int(hours):02}:{int(minutes):02}:{int(seconds):02},{milliseconds:03}"
-    return output
+    return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02},{milliseconds:03}"
 
 
 emo_dict = {
@@ -455,23 +179,23 @@ def format_str(s):
 
 
 def format_str_v2(s):
-	sptk_dict = {}
-	for sptk in emoji_dict:
-		sptk_dict[sptk] = s.count(sptk)
-		s = s.replace(sptk, "")
-	emo = "<|NEUTRAL|>"
-	for e in emo_dict:
-		if sptk_dict[e] > sptk_dict[emo]:
-			emo = e
-	for e in event_dict:
-		if sptk_dict[e] > 0:
-			s = event_dict[e] + s
-	s = s + emo_dict[emo]
+    sptk_dict = {}
+    for sptk in emoji_dict:
+        sptk_dict[sptk] = s.count(sptk)
+        s = s.replace(sptk, "")
+    emo = "<|NEUTRAL|>"
+    for e in emo_dict:
+        if sptk_dict.get(e, 0) > sptk_dict.get(emo, 0):
+            emo = e
+    for e in event_dict:
+        if sptk_dict.get(e, 0) > 0:
+            s = event_dict[e] + s
+    s = s + emo_dict.get(emo, "")
 
-	for emoji in emo_set.union(event_set):
-		s = s.replace(" " + emoji, emoji)
-		s = s.replace(emoji + " ", emoji)
-	return s.strip()
+    for emoji in emo_set.union(event_set):
+        s = s.replace(f" {emoji}", emoji)
+        s = s.replace(f"{emoji} ", emoji)
+    return s.strip()
 
 def format_str_v3(s):
 	def get_emo(s):
@@ -483,7 +207,7 @@ def format_str_v3(s):
 	for lang in lang_dict:
 		s = s.replace(lang, "<|lang|>")
 	s_list = [format_str_v2(s_i).strip(" ") for s_i in s.split("<|lang|>")]
-	new_s = " " + s_list[0]
+	new_s = f" {s_list[0]}"
 	cur_ent_event = get_event(new_s)
 	for i in range(1, len(s_list)):
 		if len(s_list[i]) == 0:
@@ -503,9 +227,7 @@ def ms_to_srt_time(ms):
     hours, remainder = divmod(N, 3600000)
     minutes, remainder = divmod(remainder, 60000)
     seconds, milliseconds = divmod(remainder, 1000)
-    timesrt = f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
-    # print(timesrt)
-    return timesrt
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
 
 def time_to_srt(time_in_seconds):
     """
@@ -521,125 +243,9 @@ def time_to_srt(time_in_seconds):
     hours = milliseconds // 3600000
     minutes = (milliseconds % 3600000) // 60000
     seconds = (milliseconds % 60000) // 1000
-    milliseconds = milliseconds % 1000
+    milliseconds %= 1000
     return f"{hours:02}:{minutes:02}:{seconds:02},{milliseconds:03}"
-# 制作字幕文件 阿里
-def make_srt_sv(file_path):
 
-
-    model_dir = "iic/SenseVoiceSmall"
-    input_file = (file_path)
-
-    model = AutoModel(model=model_dir,
-                    vad_model="fsmn-vad",
-                    vad_kwargs={"max_single_segment_time": 30000},
-                    trust_remote_code=True, device="cuda:0")
-
-    res = model.generate(
-        input=input_file,
-        cache={},
-        language="auto", # "zn", "en", "yue", "ja", "ko", "nospeech"
-        use_itn=False,
-        batch_size_s=0, 
-    )
-
-    print(res)
-    text = res[0]["text"]
-    # text = format_str_v3(text)
-    text = rich_transcription_postprocess(text)
-
-    print(text)
-
-    return text
-
-
-    # for filename in os.listdir("./wavs"):
-    #     if filename.endswith(".wav"):
-    #         filepath = os.path.join("./wavs/", filename)
-    #         try:
-    #             if os.path.isfile(filepath):
-    #                 os.remove(filepath)
-    #                 print(f"已删除文件: {filepath}")
-    #         except Exception as e:
-    #             print(f"删除文件时出错: {filepath} - {e}")
-
-    # # 第一步，先切片
-
-    # audio, sr = librosa.load(file_path, sr=None, mono=False)
-
-    # # 创建Slicer对象
-    # slicer = Slicer(
-    #     sr=sr,
-    #     threshold=-40,
-    #     min_length=1500,
-    #     min_interval=300,
-    #     hop_size=1,
-    #     max_sil_kept=150000
-    # )
-
-    # # 切割音频
-    # chunks = slicer.slice(audio)
-    # for i, chunk in enumerate(chunks):
-    #     if len(chunk.shape) > 1:
-    #         chunk = chunk.T  # Swap axes if the audio is stereo.
-    #     soundfile.write(f'./wavs/chunk_{i}.wav', chunk, sr)
-
-
-    # srtlines = []
-    # audio_samples = 0
-    # audio_opt = []
-    # for filename in os.listdir("./wavs"):
-    #     if filename.endswith(".wav"):
-    #         filepath = os.path.join("./wavs/", filename)
-    #         print(filepath)
-
-    #         model_dir = "iic/SenseVoiceSmall"
-    #         input_file = (filepath)
-
-    #         model = AutoModel(model=model_dir,
-    #                         vad_model="fsmn-vad",
-    #                         vad_kwargs={"max_single_segment_time": 30000},
-    #                         trust_remote_code=True, device="cuda:0")
-
-    #         res = model.generate(
-    #             input=input_file,
-    #             cache={},
-    #             language="auto", # "zn", "en", "yue", "ja", "ko", "nospeech"
-    #             use_itn=False,
-    #             batch_size_s=0, 
-    #         )
-
-    #         # print(res)
-    #         text = res[0]["text"]
-    #         # text = format_str_v3(text)
-    #         text = rich_transcription_postprocess(text)
-
-    #         print(text)
-
-    #         audio, sampling_rate = soundfile.read(filepath)
-
-    #         audio_opt.append(audio)
-
-    #         srtline_begin=ms_to_srt_time(audio_samples*1000.0 / sampling_rate)
-    #         audio_samples += audio.size
-    #         srtline_end=ms_to_srt_time(audio_samples*1000.0 / sampling_rate)
-
-    #         srtlines.append(f"{len(audio_opt)}\n")
-    #         srtlines.append(srtline_begin+' --> '+srtline_end+"\n")
-
-    #         srtlines.append(text+"\n\n")
-
-            # exit(-1)
-
-    with open('./video.srt', 'w', encoding='utf-8') as f:
-        f.writelines(srtlines)
-
-    with open("./video.srt","r",encoding="utf-8") as f:
-        content = f.read()
-        
-    
-
-    return content
 # 制作字幕文件
 def make_srt(file_path,model_name="small"):
 
